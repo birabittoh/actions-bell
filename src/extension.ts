@@ -8,11 +8,21 @@ import { LogPanel } from './panels/logPanel';
 import { ArtifactPanel } from './panels/artifactPanel';
 import { PushEvent, TrackedRun } from './types';
 
+const CTX_TOKEN_SET = 'actionsBell.tokenSet';
+
+async function syncTokenContext(client: GitHubClient) {
+  const token = await client.getToken();
+  vscode.commands.executeCommand('setContext', CTX_TOKEN_SET, !!token);
+}
+
 export function activate(context: vscode.ExtensionContext) {
   const client   = new GitHubClient(context);
   const poller   = new WorkflowPoller(client);
   const sound    = new SoundPlayer(context.extensionPath);
   const provider = new StatusProvider();
+
+  // Sync context key immediately so menus/welcome view render correctly
+  syncTokenContext(client);
 
   const treeView = vscode.window.createTreeView('actionsBell.status', {
     treeDataProvider: provider,
@@ -60,8 +70,9 @@ export function activate(context: vscode.ExtensionContext) {
     const msg = err instanceof Error ? err.message : String(err);
     // Only surface token errors prominently; others are transient
     if (msg.includes('No GitHub token') || msg.includes('401') || msg.includes('403')) {
-      vscode.window.showWarningMessage(`Actions Bell: ${msg}`, 'Set Token').then(a => {
-        if (a === 'Set Token') client.promptForToken();
+      vscode.window.showWarningMessage(`Actions Bell: ${msg}`, 'Set Token').then(async a => {
+        if (a === 'Set Token') await client.promptForToken();
+        syncTokenContext(client);
       });
     } else {
       console.error('[Actions Bell] poll error:', msg);
@@ -85,8 +96,14 @@ export function activate(context: vscode.ExtensionContext) {
     poller,
     sound,
 
-    vscode.commands.registerCommand('actionsBell.setToken', () => client.promptForToken()),
-    vscode.commands.registerCommand('actionsBell.clearToken', () => client.clearToken()),
+    vscode.commands.registerCommand('actionsBell.setToken', async () => {
+      await client.promptForToken();
+      syncTokenContext(client);
+    }),
+    vscode.commands.registerCommand('actionsBell.clearToken', async () => {
+      await client.clearToken();
+      syncTokenContext(client);
+    }),
     vscode.commands.registerCommand('actionsBell.refresh',   () => provider.refresh()),
 
     vscode.commands.registerCommand('actionsBell.openLogs', (node: any) => {

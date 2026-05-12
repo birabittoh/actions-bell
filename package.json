@@ -2,7 +2,7 @@
   "name": "actions-bell",
   "displayName": "Actions Bell",
   "description": "Auto-tracks GitHub Actions after push, plays sound on completion, shows logs and artifacts",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "birabittoh",
   "repository": "https://github.com/birabittoh/actions-bell",
   "icon": "media/icon.png",
@@ -75,17 +75,34 @@
         "icon": "$(link-external)"
       }
     ],
+    "viewsWelcome": [
+      {
+        "view": "actionsBell.status",
+        "contents": "A GitHub token is required to track workflow runs.\n\n[$(key) Set GitHub Token](command:actionsBell.setToken)\n\nNeeds a PAT with repo and workflow read scopes.",
+        "when": "!actionsBell.tokenSet"
+      },
+      {
+        "view": "actionsBell.status",
+        "contents": "Push commits to start tracking workflows.",
+        "when": "actionsBell.tokenSet"
+      }
+    ],
     "menus": {
       "view/title": [
         {
           "command": "actionsBell.refresh",
-          "when": "view == actionsBell.status",
+          "when": "view == actionsBell.status && actionsBell.tokenSet",
           "group": "navigation"
         },
         {
           "command": "actionsBell.setToken",
-          "when": "view == actionsBell.status",
-          "group": "1_config"
+          "when": "view == actionsBell.status && !actionsBell.tokenSet",
+          "group": "1_config@1"
+        },
+        {
+          "command": "actionsBell.clearToken",
+          "when": "view == actionsBell.status && actionsBell.tokenSet",
+          "group": "1_config@1"
         }
       ],
       "view/item/context": [
