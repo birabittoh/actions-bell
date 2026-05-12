@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install ImageMagick
+        run: sudo apt-get install -y --no-install-recommends imagemagick
+
+      - run: npm ci
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Stamp version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Building version $VERSION"
+          npm version "$VERSION" --no-git-tag-version
+
+      - name: Generate assets
+        run: |
+          node scripts/generate-icon.js
+          node scripts/generate-sounds.js
+
+      - name: Bundle (production)
+        run: node esbuild.js --production
+
+      - name: Package VSIX
+        run: npx --yes @vscode/vsce package --no-dependencies
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.vsix"
+          generate_release_notes: true
+          fail_on_unmatched_files: true

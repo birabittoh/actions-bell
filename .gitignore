@@ -1,0 +1,7 @@
+node_modules/
+out/
+*.vsix
+media/success.wav
+media/failure.wav
+media/icon.png
+media/_icon_tmp.svg
