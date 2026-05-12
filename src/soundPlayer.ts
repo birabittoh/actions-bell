@@ -10,7 +10,7 @@ export class SoundPlayer implements vscode.Disposable {
 
   private play(type: 'success' | 'failure') {
     const cfg = vscode.workspace.getConfiguration('actionsBell');
-    if (!cfg.get<boolean>('sound.enabled', false)) return;
+    if (!cfg.get<boolean>('sound.enabled', true)) return;
 
     const customCmd = cfg.get<string>(`sound.${type}Command`, '');
     if (customCmd) {

@@ -73,6 +73,18 @@
         "title": "Open in GitHub",
         "category": "Actions Bell",
         "icon": "$(link-external)"
+      },
+      {
+        "command": "actionsBell.enableSound",
+        "title": "Enable Sound Notifications",
+        "category": "Actions Bell",
+        "icon": "$(bell-slash)"
+      },
+      {
+        "command": "actionsBell.disableSound",
+        "title": "Disable Sound Notifications",
+        "category": "Actions Bell",
+        "icon": "$(bell)"
       }
     ],
     "viewsWelcome": [
@@ -92,7 +104,17 @@
         {
           "command": "actionsBell.refresh",
           "when": "view == actionsBell.status && actionsBell.tokenSet",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "actionsBell.enableSound",
+          "when": "view == actionsBell.status && !actionsBell.soundEnabled",
+          "group": "navigation@2"
+        },
+        {
+          "command": "actionsBell.disableSound",
+          "when": "view == actionsBell.status && actionsBell.soundEnabled",
+          "group": "navigation@2"
         },
         {
           "command": "actionsBell.setToken",
@@ -128,8 +150,8 @@
       "properties": {
         "actionsBell.sound.enabled": {
           "type": "boolean",
-          "default": false,
-          "description": "Play a sound when workflows complete (disabled by default)"
+          "default": true,
+          "description": "Play a sound when workflows complete"
         },
         "actionsBell.sound.successCommand": {
           "type": "string",

@@ -52,7 +52,7 @@ Provide a [Personal Access Token](https://github.com/settings/tokens) with **rep
 
 | Setting | Default | Description |
 |---|---|---|
-| `actionsBell.sound.enabled` | `false` | Play sound on workflow completion |
+| `actionsBell.sound.enabled` | `true` | Play sound on workflow completion |
 | `actionsBell.sound.successCommand` | `""` | Custom shell command for success sound |
 | `actionsBell.sound.failureCommand` | `""` | Custom shell command for failure sound |
 | `actionsBell.polling.intervalSeconds` | `10` | Polling interval in seconds |

@@ -8,11 +8,17 @@ import { LogPanel } from './panels/logPanel';
 import { ArtifactPanel } from './panels/artifactPanel';
 import { PushEvent, TrackedRun } from './types';
 
-const CTX_TOKEN_SET = 'actionsBell.tokenSet';
+const CTX_TOKEN_SET   = 'actionsBell.tokenSet';
+const CTX_SOUND_ON    = 'actionsBell.soundEnabled';
 
 async function syncTokenContext(client: GitHubClient) {
   const token = await client.getToken();
   vscode.commands.executeCommand('setContext', CTX_TOKEN_SET, !!token);
+}
+
+function syncSoundContext() {
+  const enabled = vscode.workspace.getConfiguration('actionsBell').get<boolean>('sound.enabled', false);
+  vscode.commands.executeCommand('setContext', CTX_SOUND_ON, enabled);
 }
 
 export function activate(context: vscode.ExtensionContext) {
@@ -21,8 +27,9 @@ export function activate(context: vscode.ExtensionContext) {
   const sound    = new SoundPlayer(context.extensionPath);
   const provider = new StatusProvider();
 
-  // Sync context key immediately so menus/welcome view render correctly
+  // Sync context keys immediately so menus/welcome view render correctly
   syncTokenContext(client);
+  syncSoundContext();
 
   const treeView = vscode.window.createTreeView('actionsBell.status', {
     treeDataProvider: provider,
@@ -104,7 +111,20 @@ export function activate(context: vscode.ExtensionContext) {
       await client.clearToken();
       syncTokenContext(client);
     }),
-    vscode.commands.registerCommand('actionsBell.refresh',   () => provider.refresh()),
+    vscode.commands.registerCommand('actionsBell.refresh', () => provider.refresh()),
+
+    vscode.commands.registerCommand('actionsBell.enableSound', async () => {
+      await vscode.workspace.getConfiguration('actionsBell').update('sound.enabled', true, vscode.ConfigurationTarget.Global);
+      syncSoundContext();
+    }),
+    vscode.commands.registerCommand('actionsBell.disableSound', async () => {
+      await vscode.workspace.getConfiguration('actionsBell').update('sound.enabled', false, vscode.ConfigurationTarget.Global);
+      syncSoundContext();
+    }),
+
+    vscode.workspace.onDidChangeConfiguration(e => {
+      if (e.affectsConfiguration('actionsBell.sound.enabled')) syncSoundContext();
+    }),
 
     vscode.commands.registerCommand('actionsBell.openLogs', (node: any) => {
       // node can be a RunNode or JobNode from the tree, or a direct TrackedRun
