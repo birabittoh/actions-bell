@@ -229,28 +229,25 @@ function selectJob(jobId) {
   }
 }
 
-// Parse raw GitHub Actions log text into step sections
-function parseLog(raw) {
+// Parse raw GitHub Actions log text into step sections, merging sub-groups into their parent step.
+// GitHub logs are flat (all ##[group] at depth 0); sub-items like "Runner Image" are separate
+// groups that belong to the enclosing API step (e.g. "Set up job").
+function parseLog(raw, apiStepNames) {
+  const stepNames = new Set(apiStepNames || []);
   const lines = raw.split('\\n');
-  const sections = [];
+  const allSections = [];
   let cur = null;
-  let depth = 0;
 
   for (const rawLine of lines) {
     const tsMatch = rawLine.match(/^(\\d{4}-\\d{2}-\\d{2}T[\\d:.]+Z) (.*)$/);
-    const ts = tsMatch ? tsMatch[1].slice(11,19) : ''; // HH:MM:SS
-    const content = tsMatch ? tsMatch[2] : rawLine;
+    const ts = tsMatch ? tsMatch[1].slice(11,19) : '';
+    const content = (tsMatch ? tsMatch[2] : rawLine).trimEnd();
 
     if (content.startsWith('##[group]')) {
-      depth++;
-      if (depth === 1) {
-        if (cur) sections.push(cur);
-        cur = { name: content.slice(9), lines: [], hasError: false };
-      }
-      // nested groups fall through to content rendering below
+      if (cur) allSections.push(cur);
+      cur = { name: content.slice(9), lines: [], hasError: false };
     } else if (content === '##[endgroup]') {
-      if (depth > 0) depth--;
-      if (depth === 0 && cur) { sections.push(cur); cur = null; }
+      if (cur) { allSections.push(cur); cur = null; }
     } else if (cur) {
       const isError = content.startsWith('##[error]')
         || /\\berror\\b/i.test(content)
@@ -268,19 +265,32 @@ function parseLog(raw) {
       cur.lines.push({ ts, text, isError, isWarn, isCmd });
     }
   }
-  if (cur) sections.push(cur);
-  return sections;
+  if (cur) allSections.push(cur);
+
+  // Merge sub-sections (not in API step list) into previous API-step section
+  if (stepNames.size === 0) return allSections;
+  const sections = [];
+  for (const sec of allSections) {
+    if (stepNames.has(sec.name)) {
+      sections.push(sec);
+    } else if (sections.length > 0) {
+      const parent = sections[sections.length - 1];
+      parent.lines.push(...sec.lines);
+      if (sec.hasError) parent.hasError = true;
+    }
+  }
+  return sections.length > 0 ? sections : allSections;
 }
 
 function renderLog(jobId, rawLog) {
   const job = jobs.find(j => j.id === jobId);
   if (!job) return;
 
-  const sections = parseLog(rawLog);
+  const apiStepNames = (job.steps ?? []).map(s => s.name);
+  const sections = parseLog(rawLog, apiStepNames);
 
-  // Correlate sections with API steps by order (GitHub logs group = step)
-  const html = sections.map((sec, i) => {
-    const apiStep = job.steps?.[i];
+  const html = sections.map((sec) => {
+    const apiStep = job.steps?.find(s => s.name === sec.name);
     const failed = sec.hasError || apiStep?.conclusion === 'failure';
     const stepDur = apiStep ? duration(apiStep.started_at, apiStep.completed_at) : '';
 
