@@ -22,13 +22,22 @@ export class SoundPlayer implements vscode.Disposable {
 
     const isWSL = process.platform === 'linux' && !!process.env.WSL_DISTRO_NAME;
 
-    if (isWSL || process.platform === 'win32') {
-      // Use Windows system sounds — no file path needed
-      const sound = type === 'success' ? 'Asterisk' : 'Exclamation';
-      const cmd = isWSL
-        ? `powershell.exe -NoProfile -c "[System.Media.SystemSounds]::${sound}.Play()"`
-        : `powershell -NoProfile -c "[System.Media.SystemSounds]::${sound}.Play()"`;
-      child_process.exec(cmd, { timeout: 5000 }, () => {});
+    if (isWSL) {
+      const bundled = path.join(this.extensionPath, 'media', `${type}.wav`);
+      child_process.exec(`wslpath -w "${bundled}"`, (err, winPath) => {
+        if (err) return;
+        const p = winPath.trim();
+        child_process.exec(
+          `powershell.exe -NoProfile -c "(New-Object Media.SoundPlayer '${p}').PlaySync()"`,
+          { timeout: 5000 }, () => {}
+        );
+      });
+    } else if (process.platform === 'win32') {
+      const bundled = path.join(this.extensionPath, 'media', `${type}.wav`);
+      child_process.exec(
+        `powershell -NoProfile -c "(New-Object Media.SoundPlayer '${bundled}').PlaySync()"`,
+        { timeout: 5000 }, () => {}
+      );
     } else if (process.platform === 'darwin') {
       const sound = type === 'success' ? 'Glass' : 'Basso';
       child_process.exec(`afplay /System/Library/Sounds/${sound}.aiff`, { timeout: 5000 }, () => {});
