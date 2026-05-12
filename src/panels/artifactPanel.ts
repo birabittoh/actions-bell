@@ -219,7 +219,7 @@ body {
 <body>
 <div class="toolbar">
   <h2>Artifacts — ${escHtml(tracked.run.name ?? 'Workflow')}</h2>
-  <button class="btn btn-secondary" onclick="openGitHub('${escHtml(runUrl)}')">Open in GitHub ↗</button>
+  <button class="btn btn-secondary" id="btn-github" data-url="${escHtml(runUrl)}">Open in GitHub ↗</button>
 </div>
 <div class="content">
 ${artifacts.length === 0
@@ -234,8 +234,8 @@ ${artifacts.length === 0
       ${a.expired ? 'Expired' : `Expires in ${daysUntil(a.expires_at)}d`}
     </span>
     <div class="artifact-actions">
-      <button class="btn btn-secondary" onclick="preview(${a.id}, '${escHtml(a.name)}')" ${a.expired ? 'disabled' : ''}>Preview</button>
-      <button class="btn" onclick="download(${a.id}, '${escHtml(a.name)}')" ${a.expired ? 'disabled' : ''}>Download ZIP</button>
+      <button class="btn btn-secondary preview-btn" data-id="${a.id}" data-name="${escHtml(a.name)}" ${a.expired ? 'disabled' : ''}>Preview</button>
+      <button class="btn download-btn" data-id="${a.id}" data-name="${escHtml(a.name)}" ${a.expired ? 'disabled' : ''}>Download ZIP</button>
     </div>
   </div>
   <div class="artifact-body" id="body-${a.id}"></div>
@@ -269,6 +269,15 @@ function openFile(artifactId, fileName) {
 function openGitHub(url) {
   vscode.postMessage({ type: 'openInGitHub', url });
 }
+
+document.getElementById('btn-github').addEventListener('click', function() { openGitHub(this.dataset.url); });
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.preview-btn, .download-btn');
+  if (!btn || btn.disabled) return;
+  const id = +btn.dataset.id, name = btn.dataset.name;
+  if (btn.classList.contains('preview-btn')) preview(id, name);
+  else download(id, name);
+});
 
 window.addEventListener('message', e => {
   const msg = e.data;

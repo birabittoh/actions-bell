@@ -165,8 +165,8 @@ pre.step-log {
 <body>
 <div class="toolbar">
   <h2 id="runTitle">${escHtml(tracked.run.name ?? 'Workflow')}</h2>
-  <button class="btn btn-secondary" onclick="openArtifacts()">Artifacts</button>
-  <button class="btn btn-secondary" onclick="openGitHub('${escHtml(runUrl)}')">Open in GitHub ↗</button>
+  <button class="btn btn-secondary" id="btn-artifacts">Artifacts</button>
+  <button class="btn btn-secondary" id="btn-github" data-url="${escHtml(runUrl)}">Open in GitHub ↗</button>
 </div>
 <div class="layout">
   <div class="sidebar" id="jobList"></div>
@@ -210,7 +210,7 @@ function stripAnsi(s) {
 function renderJobList() {
   const el = document.getElementById('jobList');
   el.innerHTML = jobs.map(j => \`
-    <div class="job-item \${j.id === activeJobId ? 'active' : ''}" id="job-\${j.id}" onclick="selectJob(\${j.id})">
+    <div class="job-item \${j.id === activeJobId ? 'active' : ''}" id="job-\${j.id}" data-job-id="\${j.id}">
       <span class="icon">\${statusIcon(j.status, j.conclusion)}</span>
       <span class="job-name">\${escHtml(j.name)}</span>
       <span class="job-dur">\${duration(j.started_at, j.completed_at)}</span>
@@ -234,6 +234,7 @@ function parseLog(raw) {
   const lines = raw.split('\\n');
   const sections = [];
   let cur = null;
+  let depth = 0;
 
   for (const rawLine of lines) {
     const tsMatch = rawLine.match(/^(\\d{4}-\\d{2}-\\d{2}T[\\d:.]+Z) (.*)$/);
@@ -241,10 +242,15 @@ function parseLog(raw) {
     const content = tsMatch ? tsMatch[2] : rawLine;
 
     if (content.startsWith('##[group]')) {
-      if (cur) sections.push(cur);
-      cur = { name: content.slice(9), lines: [], hasError: false };
+      depth++;
+      if (depth === 1) {
+        if (cur) sections.push(cur);
+        cur = { name: content.slice(9), lines: [], hasError: false };
+      }
+      // nested groups fall through to content rendering below
     } else if (content === '##[endgroup]') {
-      if (cur) { sections.push(cur); cur = null; }
+      if (depth > 0) depth--;
+      if (depth === 0 && cur) { sections.push(cur); cur = null; }
     } else if (cur) {
       const isError = content.startsWith('##[error]')
         || /\\berror\\b/i.test(content)
@@ -321,6 +327,13 @@ window.addEventListener('message', e => {
         \`<div class="loading" style="color:var(--vscode-errorForeground)">Failed to load log: \${escHtml(msg.message)}</div>\`;
     }
   }
+});
+
+document.getElementById('btn-artifacts').addEventListener('click', openArtifacts);
+document.getElementById('btn-github').addEventListener('click', function() { openGitHub(this.dataset.url); });
+document.getElementById('jobList').addEventListener('click', e => {
+  const item = e.target.closest('[data-job-id]');
+  if (item) selectJob(+item.dataset.jobId);
 });
 
 // Init
